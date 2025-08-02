@@ -12,8 +12,8 @@ if __name__ == "__main__":
         raise ValueError("GOOGLE_API_KEY environment variable not set.")
 
     # Example User Inputs
-    initial_prompt_input = "Write a story about a cat."
-    goal_input = "Make the prompt more suitable for a magical realism author like Haruki Murakami. It should specify a mysterious tone and include an unusual, mundane object that becomes significant."
+    initial_prompt_input = "Write a financial analysis for a company."
+    goal_input = ("The analysis should include the company's name, current price, and the company's financial statements such as balance sheet, cash flow, and income statements.")
 
     # The inputs for the graph
     inputs = {
@@ -28,28 +28,54 @@ if __name__ == "__main__":
     print(f"Goal: '{inputs['goal']}'\n")
 
     # Instantiate the agent and get the compiled graph
-    rose_agent = ROSEAgent(llm_model_name="gemini-2.5-flash")
+    rose_agent = ROSEAgent(llm_model_name="gemini-2.5-pro")
     app = rose_agent.get_graph()
 
-    # The stream() method lets us see the output of each step
-    final_state = None
-    for event in app.stream(inputs):
-        if "__end__" not in event:
-            # The event key is the name of the node that just ran
-            node_name = list(event.keys())[0]
-            # The value is the dictionary returned by that node
-            node_output = event[node_name]
-            print("---")
-            final_state = node_output
+    print("--- Starting Agent Execution ---")
+    
+    # Run the agent and get the complete final state
+    final_state = app.invoke(inputs)
 
-    print("\n--- ROSE AGENT WORK COMPLETE ---")
-    if final_state and final_state.get('evaluation'):
+    print("\n\n--- ROSE AGENT WORK COMPLETE ---")
+    
+    # Display debugging information
+    print(f"\n--- Debugging Final State ---")
+    if final_state:
+        print(f"Final state keys: {list(final_state.keys())}")
+        print(f"Iteration count: {final_state.get('iteration_count', 'N/A')}")
+        if final_state.get('current_prompt'):
+            print(f"Current prompt length: {len(final_state.get('current_prompt', ''))}")
+        if final_state.get('evaluation'):
+            print(f"Evaluation present: {type(final_state.get('evaluation'))}")
+    else:
+        print("final_state is None")
+
+    # Extract and display final results
+    if final_state and final_state.get('current_prompt') and final_state.get('evaluation'):
         final_prompt = final_state.get('current_prompt')
         final_evaluation = final_state.get('evaluation')
 
-        print(f"\n🌟 Final Improved Prompt:\n{final_prompt}")
-        print("\n📊 Final Evaluation:")
+        print("\n\n=====================================")
+        print("          FINAL RESULTS")
+        print("=====================================")
+        print("\n### Initial Prompt:")
+        print(f'"{inputs["initial_prompt"]}"')
+        print("\n### User Goal:")
+        print(f'"{inputs["goal"]}"')
+        print(f"\n### Final Improved Prompt:")
+        print(f'"{final_prompt}"')
+        print("\n### Final Evaluation:")
         print(f"  - Score: {final_evaluation.score}/10")
         print(f"  - Rationale: {final_evaluation.rationale}")
+        print(f"  - Improvement Sufficient: {final_evaluation.is_improvement_sufficient}")
+        print("\n=====================================")
     else:
-        print("Agent did not complete the evaluation cycle.")
+        print("\n❌ ERROR: Agent did not complete successfully.")
+        if not final_state:
+            print("  - No final state returned")
+        elif not final_state.get('current_prompt'):
+            print("  - No final prompt generated")
+        elif not final_state.get('evaluation'):
+            print("  - No evaluation completed")
+        else:
+            print("  - Unknown issue occurred")
